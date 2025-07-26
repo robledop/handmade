@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CLionExternalBuildManager">
+    <target id="b5e04548-a89e-4072-8b9d-cfe73359b742" name="Windows" defaultType="TOOL">
+      <configuration id="ff88cac3-1b2f-4d45-b55b-d5c2c2beb12c" name="Windows" toolchainName="mingw" />
+    </target>
+  </component>
+</project>
