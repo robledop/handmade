@@ -1,3 +1,4 @@
+#include <string>
 #include <windows.h>
 
 // TODO: this is global for now
@@ -15,31 +16,42 @@ static void Win32ResizeDIBSection(const int width, const int height)
 
     if (BitmapHandle)
     {
+        // DeleteObject will delete the bitmap handle and free the memory associated with it
         DeleteObject(BitmapHandle);
     }
+
     if (!BitmapDeviceContext)
     {
         // TODO: should we recreate these under certain special circumstances
         BitmapDeviceContext = CreateCompatibleDC(nullptr);
     }
 
-    BitmapInfo.bmiHeader.biSize = sizeof(BitmapInfo.bmiHeader);
+    BitmapInfo.bmiHeader.biSize = sizeof(BitmapInfo.bmiHeader); // Size of the BITMAPINFOHEADER structure
     BitmapInfo.bmiHeader.biWidth = width;
     BitmapInfo.bmiHeader.biHeight = height;
-    BitmapInfo.bmiHeader.biPlanes = 1;
-    BitmapInfo.bmiHeader.biBitCount = 32;
+    BitmapInfo.bmiHeader.biPlanes = 1; // Number of color planes must be 1
+    BitmapInfo.bmiHeader.biBitCount = 32; // 32 bits per pixel (RGBA)
     BitmapInfo.bmiHeader.biCompression = BI_RGB;
 
-    BitmapHandle = CreateDIBSection(BitmapDeviceContext, &BitmapInfo,
-                                    DIB_RGB_COLORS, &BitmapMemory, nullptr, 0);
+    // A DIB section is a bitmap that can be used to draw directly to the screen.
+    BitmapHandle = CreateDIBSection(BitmapDeviceContext,
+                                    &BitmapInfo,
+                                    DIB_RGB_COLORS,
+                                    &BitmapMemory,
+                                    nullptr,
+                                    0);
 }
 
-static void Win32UpdateWindow(HDC deviceContext,
+// Updates the window with the pixel data from BitmapMemory
+static void Win32UpdateWindow(
+    HDC deviceContext,
     const int x,
     const int y,
     const int width,
     const int height)
 {
+    // StretchDIBits will copy the pixel data from BitmapMemory to the device context.
+    // It will stretch the pixels to fit the specified width and height.
     StretchDIBits(deviceContext,
                   x,
                   y,
@@ -56,7 +68,8 @@ static void Win32UpdateWindow(HDC deviceContext,
 }
 
 // This is the callback function that will handle messages sent to the window
-LRESULT CALLBACK Win32MainWindowCallback(HWND window,
+LRESULT CALLBACK Win32MainWindowCallback(
+    HWND window,
     const UINT message,
     const WPARAM wParam,
     const LPARAM lParam)
@@ -64,6 +77,12 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND window,
     LRESULT result = 0;
     switch (message)
     {
+    case WM_KEYDOWN:
+    {
+        OutputDebugStringA(("WM_KEYDOWN " +
+            std::to_string(static_cast<int>(wParam)) + "\n").c_str());
+    }
+    break;
     case WM_SIZE: // Window size changed
     {
         RECT clientRect;
@@ -101,6 +120,7 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND window,
     {
         OutputDebugStringA("WM_PAINT\n");
         PAINTSTRUCT paint;
+        // Prepare the window for painting and returns a device context
         HDC deviceContext = BeginPaint(window, &paint);
 
         const int x = paint.rcPaint.left;
@@ -135,7 +155,7 @@ int CALLBACK WinMain(HINSTANCE hInstance,
     WindowClass.hInstance = hInstance;
     WindowClass.lpszClassName = "HandmadeHeroWindowClass";
 
-    // Register the window class to then create a window
+    // Register the window class
     if (RegisterClassA(&WindowClass))
     {
         // Create the window with the class we just registered
@@ -161,20 +181,20 @@ int CALLBACK WinMain(HINSTANCE hInstance,
             {
                 // Pull a message from the message queue
                 MSG message;
-                const BOOL messageResult = GetMessageA(
+                BOOL messageResult = GetMessageA(
                     &message,
                     nullptr,
                     0,
                     0);
 
-                if (messageResult > 0)
+                if (messageResult > 0) // 0 is WM_QUIT, -1 is an error
                 {
                     // translates virtual key messages into character messages
                     TranslateMessage(&message);
 
                     // Sends the message to the window procedure.
                     // It will be handled by the function pointer at lpfnWndProc.
-                    // Windows may send messages to the window without going through this.
+                    // Windows may send messages to the window without going through this (without putting it in the queue).
                     DispatchMessageA(&message);
                 }
                 else
