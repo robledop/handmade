@@ -34,7 +34,6 @@ static void Win32ResizeDIBSection(const int width, const int height)
                                     DIB_RGB_COLORS, &BitmapMemory, nullptr, 0);
 }
 
-// ReSharper disable once CppParameterMayBeConst
 static void Win32UpdateWindow(HDC deviceContext,
     const int x,
     const int y,
@@ -56,7 +55,6 @@ static void Win32UpdateWindow(HDC deviceContext,
                   SRCCOPY);
 }
 
-// ReSharper disable once CppParameterMayBeConst
 // This is the callback function that will handle messages sent to the window
 LRESULT CALLBACK Win32MainWindowCallback(HWND window,
     const UINT message,
@@ -103,7 +101,6 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND window,
     {
         OutputDebugStringA("WM_PAINT\n");
         PAINTSTRUCT paint;
-        // ReSharper disable once CppLocalVariableMayBeConst
         HDC deviceContext = BeginPaint(window, &paint);
 
         const int x = paint.rcPaint.left;
@@ -126,7 +123,6 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND window,
     return result;
 }
 
-// ReSharper disable once CppParameterMayBeConst
 int CALLBACK WinMain(HINSTANCE hInstance,
     [[maybe_unused]] HINSTANCE hPrevInstance,
     [[maybe_unused]] LPSTR lpCmdLine,
@@ -143,8 +139,6 @@ int CALLBACK WinMain(HINSTANCE hInstance,
     if (RegisterClassA(&WindowClass))
     {
         // Create the window with the class we just registered
-
-        // ReSharper disable once CppLocalVariableMayBeConst
         HWND windowHandle = CreateWindowExA(
             0,
             WindowClass.lpszClassName,
@@ -161,11 +155,13 @@ int CALLBACK WinMain(HINSTANCE hInstance,
 
         if (windowHandle)
         {
+            // Start handling messages
             Running = true;
             while (Running)
             {
+                // Pull a message from the message queue
                 MSG message;
-                const BOOL messageResult = GetMessage(
+                const BOOL messageResult = GetMessageA(
                     &message,
                     nullptr,
                     0,
@@ -175,8 +171,10 @@ int CALLBACK WinMain(HINSTANCE hInstance,
                 {
                     // translates virtual key messages into character messages
                     TranslateMessage(&message);
+
                     // Sends the message to the window procedure.
                     // It will be handled by the function pointer at lpfnWndProc.
+                    // Windows may send messages to the window without going through this.
                     DispatchMessageA(&message);
                 }
                 else
