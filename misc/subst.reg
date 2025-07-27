@@ -1,0 +1,5 @@
+REGEDIT4 
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\DOS Devices] 
+"W:"="\\??\\C:\\Source\\Repos"
+"Y:"="\\??\\C:\\src"
