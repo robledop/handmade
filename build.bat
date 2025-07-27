@@ -1,5 +1,7 @@
 @echo off
 
+REM The simple build script used by Casey
+
 call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
 set path=Y:\handmade;%path%;
 
