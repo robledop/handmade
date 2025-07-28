@@ -1,6 +1,6 @@
+#include <cstdint>
 #include <string>
 #include <windows.h>
-#include <stdint.h>
 
 // TODO: this is global for now
 static bool Running;

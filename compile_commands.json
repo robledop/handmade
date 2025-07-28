@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/home/robledo/source/handmade/cmake-build-debug",
+  "command": "x86_64-w64-mingw32-g++ -g -std=gnu++17 -fdiagnostics-color=always   -g -o CMakeFiles/handmade.dir/src/win32_handmade.cpp.o -c /home/robledo/source/handmade/src/win32_handmade.cpp",
+  "file": "/home/robledo/source/handmade/src/win32_handmade.cpp",
+  "output": "CMakeFiles/handmade.dir/src/win32_handmade.cpp.o"
+}
+]
