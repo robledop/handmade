@@ -124,10 +124,6 @@ LRESULT CALLBACK Win32MainWindowCallback(
             std::to_string(static_cast<int>(wParam)) + "\n").c_str());
     }
     break;
-    case WM_SIZE: // Window size changed
-    {
-    }
-    break;
 
     case WM_DESTROY:
     {
@@ -164,8 +160,14 @@ LRESULT CALLBACK Win32MainWindowCallback(
         const int width = paint.rcPaint.right - paint.rcPaint.left;
 
         win32_window_dimensions dimensions = Win32GetWindowDimensions(window);
-        Win32DisplayBufferInWindow(deviceContext, dimensions.Width, dimensions.Height, GlobalBackBuffer, x, y,
-                                       width, height);
+        Win32DisplayBufferInWindow(deviceContext,
+                                   dimensions.Width,
+                                   dimensions.Height,
+                                   GlobalBackBuffer,
+                                   x,
+                                   y,
+                                   width,
+                                   height);
 
         EndPaint(window, &paint);
     }
@@ -190,9 +192,8 @@ int CALLBACK WinMain(HINSTANCE hInstance,
     Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
     OutputDebugStringA("WM_SIZE\n");
 
-
     // Win32MainWindowCallback will handle the messages sent to the window
-    WindowClass.style = CS_HREDRAW | CS_VREDRAW; // Redraw the whole window on horizontal or vertical resize
+    WindowClass.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC; // Redraw the whole window on horizontal or vertical resize
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
     WindowClass.hInstance = hInstance;
     WindowClass.lpszClassName = "HandmadeHeroWindowClass";
@@ -217,6 +218,11 @@ int CALLBACK WinMain(HINSTANCE hInstance,
 
         if (windowHandle)
         {
+            // NOTE: Since we specified CS_OWNDC, we can just
+            // get one device context and use it forever because we
+            // are not sharing it with anyone.
+            HDC deviceContext = GetDC(windowHandle);
+
             int xOffset = 0;
             int yOffset = 0;
             // Start handling messages
@@ -242,14 +248,14 @@ int CALLBACK WinMain(HINSTANCE hInstance,
                 }
                 RenderWeirdGradient(GlobalBackBuffer, xOffset, yOffset);
 
-                HDC deviceContext = GetDC(windowHandle);
                 // RECT clientRect;
                 // GetClientRect(windowHandle, &clientRect);
                 // int windowWidth = clientRect.right - clientRect.left;
                 // int windowHeight = clientRect.bottom - clientRect.top;
                 win32_window_dimensions dimensions = Win32GetWindowDimensions(windowHandle);
-                Win32DisplayBufferInWindow(deviceContext, dimensions.Width, dimensions.Height, GlobalBackBuffer, 0, 0, dimensions.Width,
-                                               dimensions.Height);
+                Win32DisplayBufferInWindow(deviceContext, dimensions.Width, dimensions.Height, GlobalBackBuffer, 0, 0,
+                                           dimensions.Width,
+                                           dimensions.Height);
 
                 ReleaseDC(windowHandle, deviceContext);
 
