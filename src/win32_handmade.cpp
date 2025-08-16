@@ -1,7 +1,6 @@
 #include <cstdint>
 #include <string>
 #include <windows.h>
-#include <cstdint>
 
 struct win32_offscreen_buffer {
     BITMAPINFO Info;
@@ -84,11 +83,7 @@ static void Win32DisplayBufferInWindow(
     HDC deviceContext,
     int windowWidth,
     int windowHeight,
-    const win32_offscreen_buffer& buffer,
-    const int x,
-    const int y,
-    const int width,
-    const int height)
+    const win32_offscreen_buffer& buffer)
 {
     // TODO: Aspect ratio correction
     // StretchDIBits will copy the pixel data from BitmapMemory to the device context.
@@ -159,15 +154,11 @@ LRESULT CALLBACK Win32MainWindowCallback(
         const int height = paint.rcPaint.bottom - paint.rcPaint.top;
         const int width = paint.rcPaint.right - paint.rcPaint.left;
 
-        win32_window_dimensions dimensions = Win32GetWindowDimensions(window);
+        auto [Width, Height] = Win32GetWindowDimensions(window);
         Win32DisplayBufferInWindow(deviceContext,
-                                   dimensions.Width,
-                                   dimensions.Height,
-                                   GlobalBackBuffer,
-                                   x,
-                                   y,
-                                   width,
-                                   height);
+                                   Width,
+                                   Height,
+                                   GlobalBackBuffer);
 
         EndPaint(window, &paint);
     }
@@ -253,9 +244,7 @@ int CALLBACK WinMain(HINSTANCE hInstance,
                 // int windowWidth = clientRect.right - clientRect.left;
                 // int windowHeight = clientRect.bottom - clientRect.top;
                 win32_window_dimensions dimensions = Win32GetWindowDimensions(windowHandle);
-                Win32DisplayBufferInWindow(deviceContext, dimensions.Width, dimensions.Height, GlobalBackBuffer, 0, 0,
-                                           dimensions.Width,
-                                           dimensions.Height);
+                Win32DisplayBufferInWindow(deviceContext, dimensions.Width, dimensions.Height, GlobalBackBuffer);
 
                 ReleaseDC(windowHandle, deviceContext);
 
