@@ -1,0 +1,11 @@
+CompileFlags:
+  Add:
+    - -std=c++20
+    - -Wall
+    - -Wextra
+    - -I/usr/include/c++/13
+    - -I/usr/include/x86_64-linux-gnu/c++/13
+    - -I/usr/x86_64-w64-mingw32/include
+  Remove:
+    - -march=*
+    - -mcpu=*
