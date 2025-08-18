@@ -2,6 +2,7 @@
 #include <string>
 #include <windows.h>
 #include <xinput.h>
+#include <dsound.h>
 
 struct win32_offscreen_buffer {
     // NOTE: Pixels are always 32-bits wide, Memory Order 0x BB GG RR xx
@@ -23,7 +24,7 @@ struct win32_window_dimensions {
 typedef X_INPUT_GET_STATE(x_input_get_state);
 X_INPUT_GET_STATE(XInputGetStateStub)
 {
-    return 0;
+    return ERROR_DEVICE_NOT_CONNECTED;
 }
 
 // NOTE: If for some reason we are unable to load XInput, we will use this stub function that does nothing
@@ -34,7 +35,7 @@ static x_input_get_state* XInputGetState_ = XInputGetStateStub;
 typedef X_INPUT_SET_STATE(x_input_set_state);
 X_INPUT_SET_STATE(XInputSetStateStub)
 {
-    return 0;
+    return ERROR_DEVICE_NOT_CONNECTED;
 }
 
 // NOTE: If for some reason we are unable to load XInput, we will use this stub function that does nothing
@@ -44,12 +45,21 @@ static x_input_set_state* XInputSetState_ = XInputSetStateStub;
 static void Win32LoadXInput()
 {
     // NOTE: If we are able to load XInput, replace the stubs with the real functions
-    if (HMODULE x_input_library = LoadLibraryA("xinput1_4.dll"))
+    HMODULE x_input_library = LoadLibraryA("xinput1_4.dll");
+    if (!x_input_library)
+    {
+        x_input_library = LoadLibraryA("xinput1_3.dll");
+    }
+
+    if (x_input_library)
     {
         XInputGetState_ = reinterpret_cast<x_input_get_state*>(GetProcAddress(x_input_library, "XInputGetState"));
         XInputSetState_ = reinterpret_cast<x_input_set_state*>(GetProcAddress(x_input_library, "XInputSetState"));
     }
 }
+
+#define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name([[maybe_unused]] LPCGUID pcGuidDevice, [[maybe_unused]] LPDIRECTSOUND* ppDS, [[maybe_unused]] LPUNKNOWN pUnkOuter)
+typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
 static bool GlobalRunning;
 static win32_offscreen_buffer GlobalBackBuffer;
@@ -62,6 +72,77 @@ win32_window_dimensions Win32GetWindowDimensions(HWND window)
     const int height = clientRect.bottom - clientRect.top;
 
     return { width, height };
+}
+
+static void Win32InitDSound(HWND windowHandle, int32_t samples_per_second, int32_t buffer_size)
+{
+    // NOTE: Load the library
+    HMODULE dsound_library = LoadLibraryA("dsound.dll");
+
+    if (!dsound_library)
+    {
+        // TODO: Diagnostic
+
+        return;
+    }
+
+    // NOTE: Get a DirectSound object - cooperative
+    auto* DirectSoundCreate = reinterpret_cast<direct_sound_create*>(GetProcAddress(
+        dsound_library, "DirectSoundCreate"));
+
+    IDirectSound* direct_sound;
+    if (DirectSoundCreate && SUCCEEDED(DirectSoundCreate(nullptr, &direct_sound, nullptr)))
+    {
+        WAVEFORMATEX wave_format = { };
+        wave_format.wFormatTag = WAVE_FORMAT_PCM;
+        wave_format.nChannels = 2;
+        wave_format.nSamplesPerSec = samples_per_second;
+        wave_format.wBitsPerSample = 16;
+        wave_format.nBlockAlign = (wave_format.nChannels * wave_format.wBitsPerSample) / 8;
+        wave_format.nAvgBytesPerSec = wave_format.nSamplesPerSec * wave_format.nBlockAlign;
+        wave_format.cbSize = 0;
+
+        if (SUCCEEDED(direct_sound->SetCooperativeLevel(windowHandle, DSSCL_PRIORITY)))
+        {
+            // NOTE: Create a primary buffer
+            DSBUFFERDESC buffer_description = { };
+            buffer_description.dwSize = sizeof(buffer_description);
+            buffer_description.dwFlags = DSBCAPS_PRIMARYBUFFER;
+
+            LPDIRECTSOUNDBUFFER primary_buffer = { };
+            if (SUCCEEDED(direct_sound->CreateSoundBuffer(&buffer_description, &primary_buffer, nullptr)))
+            {
+                if (SUCCEEDED(primary_buffer->SetFormat(&wave_format)))
+                {
+                    // NOTE: We have finally set the format
+                    OutputDebugStringA("Primary buffer SetFormat succeeded\n");
+                }
+                else
+                {
+                    // TODO: Diagnostic
+                }
+            }
+        }
+        else
+        {
+            // TODO: Diagnostic
+        }
+
+        // NOTE: Create a secondary buffer
+        DSBUFFERDESC buffer_description = { };
+        buffer_description.dwSize = sizeof(buffer_description);
+        buffer_description.dwFlags = 0;
+        buffer_description.dwBufferBytes = buffer_size;
+        buffer_description.lpwfxFormat = &wave_format;
+
+        LPDIRECTSOUNDBUFFER secondary_buffer = { };
+        if (SUCCEEDED(direct_sound->CreateSoundBuffer(&buffer_description, &secondary_buffer, nullptr)))
+        {
+            OutputDebugStringA("Secondary buffer created\n");
+        }
+
+        // NOTE: Start it playing
+    }
 }
 
 static void RenderWeirdGradient(const win32_offscreen_buffer& buffer, int blueOffset, int greenOffset)
@@ -107,7 +188,7 @@ static void Win32ResizeDIBSection(win32_offscreen_buffer* buffer, const int widt
     buffer->Memory = VirtualAlloc(
         nullptr,
         bitmapMemorySize,
-        MEM_COMMIT,
+        MEM_COMMIT | MEM_RESERVE,
         PAGE_READWRITE);
 
     buffer->Pitch = buffer->Width * buffer->BytesPerPixel; // the number of bytes in a row of the bitmap
@@ -194,18 +275,6 @@ LRESULT CALLBACK Win32MainWindowCallback(
         case VK_ESCAPE:
         {
             GlobalRunning = false;
-            OutputDebugStringA("ESCAPE: ");
-            if (is_down)
-            {
-                OutputDebugStringA("IS DOWN ");
-            }
-
-            if (was_down)
-            {
-                OutputDebugStringA("WAS DOWN ");
-            }
-
-            OutputDebugStringA("\n");
         }
         break;
 
@@ -313,7 +382,15 @@ LRESULT CALLBACK Win32MainWindowCallback(
             OutputDebugStringA("DOWN\n");
         }
         break;
-
+        case VK_F4:
+        {
+            bool alt_key_was_down = (lParam & (1 << 29)) != 0;
+            if (alt_key_was_down)
+            {
+                GlobalRunning = false; // ALT + F4
+            }
+        }
+        break;
         default:
             // Unhandled key
             break;
@@ -391,6 +468,9 @@ int CALLBACK WinMain(HINSTANCE hInstance,
 
             int xOffset = 0;
             int yOffset = 0;
+
+            Win32InitDSound(windowHandle, 48000, 48000 * sizeof(int16_t) * 2);
+
             // Start handling messages
             GlobalRunning = true;
             while (GlobalRunning)
@@ -443,7 +523,6 @@ int CALLBACK WinMain(HINSTANCE hInstance,
 
                         xOffset += left_thumb_x >> 14;
                         yOffset += left_thumb_y >> 14;
-
 
                         if (a)
                         {
