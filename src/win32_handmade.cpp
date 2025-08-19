@@ -63,6 +63,7 @@ typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
 static bool GlobalRunning;
 static win32_offscreen_buffer GlobalBackBuffer;
+static LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer = { };
 
 win32_window_dimensions Win32GetWindowDimensions(HWND window)
 {
@@ -76,13 +77,10 @@ win32_window_dimensions Win32GetWindowDimensions(HWND window)
 
 static void Win32InitDSound(HWND windowHandle, int32_t samples_per_second, int32_t buffer_size)
 {
-    // NOTE: Load the library
     HMODULE dsound_library = LoadLibraryA("dsound.dll");
-
     if (!dsound_library)
     {
         // TODO: Diagnostic
-
         return;
     }
 
@@ -122,6 +120,10 @@ static void Win32InitDSound(HWND windowHandle, int32_t samples_per_second, int32
                     // TODO: Diagnostic
                 }
             }
+            else
+            {
+                // TODO: Diagnostic
+            }
         }
         else
         {
@@ -135,13 +137,14 @@ static void Win32InitDSound(HWND windowHandle, int32_t samples_per_second, int32
         buffer_description.dwBufferBytes = buffer_size;
         buffer_description.lpwfxFormat = &wave_format;
 
-        LPDIRECTSOUNDBUFFER secondary_buffer = { };
-        if (SUCCEEDED(direct_sound->CreateSoundBuffer(&buffer_description, &secondary_buffer, nullptr)))
+        if (SUCCEEDED(direct_sound->CreateSoundBuffer(&buffer_description, &GlobalSecondaryBuffer, nullptr)))
         {
             OutputDebugStringA("Secondary buffer created\n");
         }
-
-        // NOTE: Start it playing
+        else
+        {
+            // TODO: Diagnostic
+        }
     }
 }
 
@@ -466,10 +469,22 @@ int CALLBACK WinMain(HINSTANCE hInstance,
             // are not sharing it with anyone.
             HDC deviceContext = GetDC(windowHandle);
 
+            // NOTE: Graphics test
             int xOffset = 0;
             int yOffset = 0;
 
-            Win32InitDSound(windowHandle, 48000, 48000 * sizeof(int16_t) * 2);
+            // NOTE: Sound test
+            int samples_per_second = 48000;
+            int tone_hz = 256;
+            int16_t tone_volume = 100;
+            uint32_t running_sample_index = 0;
+            int square_wave_period = samples_per_second / tone_hz;
+            int half_square_wave_period = square_wave_period / 2;
+            int bytes_per_sample = sizeof(int16_t) * 2;
+            int secondary_buffer_size = samples_per_second * bytes_per_sample;
+
+            Win32InitDSound(windowHandle, samples_per_second, secondary_buffer_size);
+            bool sound_is_playing = false;
 
             // Start handling messages
             GlobalRunning = true;
@@ -547,6 +562,73 @@ int CALLBACK WinMain(HINSTANCE hInstance,
                 }
 
                 RenderWeirdGradient(GlobalBackBuffer, xOffset, yOffset);
+
+                // NOTE: DirectSound output test
+                DWORD play_cursor;
+                DWORD write_cursor;
+                if (SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&play_cursor, &write_cursor)))
+                {
+                    DWORD byte_to_lock = running_sample_index * bytes_per_sample % secondary_buffer_size;
+                    DWORD bytes_to_write;
+                    if (byte_to_lock == play_cursor)
+                    {
+                        bytes_to_write = secondary_buffer_size;
+                    }
+                    else if (byte_to_lock > play_cursor)
+                    {
+                        bytes_to_write = secondary_buffer_size - byte_to_lock;
+                        bytes_to_write += play_cursor;
+                    }
+                    else
+                    {
+                        bytes_to_write = play_cursor - byte_to_lock;
+                    }
+
+                    VOID* region1;
+                    DWORD region1_size;
+                    VOID* region2;
+                    DWORD region2_size;
+
+                    if (SUCCEEDED(GlobalSecondaryBuffer->Lock(
+                        byte_to_lock,
+                        bytes_to_write,
+                        &region1,
+                        &region1_size,
+                        &region2,
+                        &region2_size,
+                        0)))
+                    {
+                        DWORD region1_sample_count = region1_size / bytes_per_sample;
+                        auto* sample_out = static_cast<int16_t*>(region1);
+                        for (DWORD sample_index = 0; sample_index < region1_sample_count; ++sample_index)
+                        {
+                            int16_t sample_value = ((running_sample_index++ / half_square_wave_period) % 2)
+                                                       ? tone_volume
+                                                       : -tone_volume;
+                            *sample_out++ = sample_value;
+                            *sample_out++ = sample_value;
+                        }
+
+                        DWORD region2_sample_count = region2_size / bytes_per_sample;
+                        sample_out = static_cast<int16_t*>(region2);
+                        for (DWORD sample_index = 0; sample_index < region2_sample_count; ++sample_index)
+                        {
+                            int16_t sample_value = ((running_sample_index++ / half_square_wave_period) % 2)
+                                                       ? tone_volume
+                                                       : -tone_volume;
+                            *sample_out++ = sample_value;
+                            *sample_out++ = sample_value;
+                        }
+
+                        GlobalSecondaryBuffer->Unlock(region1, region1_size, region2, region2_size);
+                    }
+                }
+
+                if (!sound_is_playing)
+                {
+                    GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
+                    sound_is_playing = true;
+                }
 
                 win32_window_dimensions dimensions = Win32GetWindowDimensions(windowHandle);
                 Win32DisplayBufferInWindow(deviceContext, dimensions.Width, dimensions.Height, GlobalBackBuffer);
