@@ -495,6 +495,10 @@ int CALLBACK WinMain(HINSTANCE hInstance,
     [[maybe_unused]] LPSTR lpCmdLine,
     [[maybe_unused]] int nShowCmd)
 {
+    LARGE_INTEGER perf_counter_frequency_result;
+    QueryPerformanceFrequency(&perf_counter_frequency_result);
+    int64_t perf_counter_frequency = perf_counter_frequency_result.QuadPart;
+
     Win32LoadXInput();
     WNDCLASSA WindowClass = { };
 
@@ -537,7 +541,6 @@ int CALLBACK WinMain(HINSTANCE hInstance,
             int yOffset = 0;
 
             // NOTE: Sound test
-
             win32_sound_output sound_output{ };
             sound_output.samples_per_second = 48000;
             sound_output.tone_hz = 256;
@@ -550,7 +553,13 @@ int CALLBACK WinMain(HINSTANCE hInstance,
 
             Win32InitDSound(windowHandle, sound_output.samples_per_second, sound_output.secondary_buffer_size);
             Win32FillSoundBuffer(&sound_output, 0, sound_output.latency_sample_count * sound_output.bytes_per_sample);
-            GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
+
+            SUCCEEDED(GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING));
+
+            LARGE_INTEGER last_counter;
+            QueryPerformanceCounter(&last_counter);
+
+            DWORD64 last_cycle_count = __rdtsc();
 
             // Start handling messages
             GlobalRunning = true;
@@ -658,7 +667,25 @@ int CALLBACK WinMain(HINSTANCE hInstance,
                 win32_window_dimensions dimensions = Win32GetWindowDimensions(windowHandle);
                 Win32DisplayBufferInWindow(deviceContext, dimensions.Width, dimensions.Height, GlobalBackBuffer);
 
-                ReleaseDC(windowHandle, deviceContext);
+                DWORD64 end_cycle_count = __rdtsc();
+
+                LARGE_INTEGER end_counter;
+                QueryPerformanceCounter(&end_counter);
+
+                DWORD64 cycles_elapsed = end_cycle_count - last_cycle_count;
+                int64_t counter_elapsed = end_counter.QuadPart - last_counter.QuadPart;
+                auto ms_per_frame = static_cast<float>(counter_elapsed) * 1000.0f / static_cast<
+                    float>(perf_counter_frequency);
+                float fps = 1000 / ms_per_frame;
+                auto mega_cycles_per_frame = static_cast<float>(cycles_elapsed) / (1000.0f *
+                    1000.0f);
+                char buffer[256];
+                sprintf(buffer, "ms/frame: %f (FPS: %f, Mega Cycles: %f)\n", ms_per_frame, fps,
+                          mega_cycles_per_frame);
+                OutputDebugStringA(buffer);
+
+                last_counter = end_counter;
+                last_cycle_count = end_cycle_count;
             }
         }
         else
