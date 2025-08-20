@@ -667,12 +667,12 @@ int CALLBACK WinMain(HINSTANCE hInstance,
                 win32_window_dimensions dimensions = Win32GetWindowDimensions(windowHandle);
                 Win32DisplayBufferInWindow(deviceContext, dimensions.Width, dimensions.Height, GlobalBackBuffer);
 
-                DWORD64 end_cycle_count = __rdtsc();
+                uint64_t end_cycle_count = __rdtsc();
 
                 LARGE_INTEGER end_counter;
                 QueryPerformanceCounter(&end_counter);
 
-                DWORD64 cycles_elapsed = end_cycle_count - last_cycle_count;
+                uint64_t cycles_elapsed = end_cycle_count - last_cycle_count;
                 int64_t counter_elapsed = end_counter.QuadPart - last_counter.QuadPart;
                 auto ms_per_frame = static_cast<float>(counter_elapsed) * 1000.0f / static_cast<
                     float>(perf_counter_frequency);
@@ -680,7 +680,7 @@ int CALLBACK WinMain(HINSTANCE hInstance,
                 auto mega_cycles_per_frame = static_cast<float>(cycles_elapsed) / (1000.0f *
                     1000.0f);
                 char buffer[256];
-                sprintf(buffer, "ms/frame: %f (FPS: %f, Mega Cycles: %f)\n", ms_per_frame, fps,
+                wsprintf(buffer, "ms/frame: %f (FPS: %f, Mega Cycles: %f)\n", ms_per_frame, fps,
                           mega_cycles_per_frame);
                 OutputDebugStringA(buffer);
 
