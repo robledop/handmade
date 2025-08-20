@@ -29,6 +29,8 @@ struct win32_sound_output {
     int wave_period;
     int bytes_per_sample;
     int secondary_buffer_size;
+    float t_sine;
+    int latency_sample_count;
 };
 
 // NOTE: We are declaring these functions ourselves because we don't want to link with xinput directly
@@ -61,6 +63,10 @@ static void Win32LoadXInput()
     if (!x_input_library)
     {
         x_input_library = LoadLibraryA("xinput1_3.dll");
+        if (!x_input_library)
+        {
+            x_input_library = LoadLibraryA("xinput9_1_0.dll");
+        }
     }
 
     if (x_input_library)
@@ -431,8 +437,7 @@ LRESULT CALLBACK Win32MainWindowCallback(
     break;
 
     default:
-        // OutputDebugStringA("default\n");
-        result = DefWindowProc(window, message, wParam, lParam);
+        result = DefWindowProcA(window, message, wParam, lParam);
         break;
     }
 
@@ -541,9 +546,10 @@ int CALLBACK WinMain(HINSTANCE hInstance,
             sound_output.wave_period = sound_output.samples_per_second / sound_output.tone_hz;
             sound_output.bytes_per_sample = sizeof(int16_t) * 2;
             sound_output.secondary_buffer_size = sound_output.samples_per_second * sound_output.bytes_per_sample;
+            sound_output.latency_sample_count = sound_output.samples_per_second / 15;
 
             Win32InitDSound(windowHandle, sound_output.samples_per_second, sound_output.secondary_buffer_size);
-            Win32FillSoundBuffer(&sound_output, 0, sound_output.secondary_buffer_size);
+            Win32FillSoundBuffer(&sound_output, 0, sound_output.latency_sample_count * sound_output.bytes_per_sample);
             GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
             // Start handling messages
@@ -596,8 +602,8 @@ int CALLBACK WinMain(HINSTANCE hInstance,
                         int16_t right_thumb_x = pad->sThumbRX;
                         int16_t right_thumb_y = pad->sThumbRY;
 
-                        xOffset += left_thumb_x >> 14;
-                        yOffset += left_thumb_y >> 14;
+                        xOffset += left_thumb_x / 4096;
+                        yOffset += left_thumb_y / 4096;
 
                         if (a)
                         {
@@ -630,16 +636,20 @@ int CALLBACK WinMain(HINSTANCE hInstance,
                 {
                     DWORD byte_to_lock = (sound_output.running_sample_index * sound_output.bytes_per_sample) %
                             sound_output.secondary_buffer_size;
+                    DWORD target_cursor = (play_cursor + (
+                                sound_output.latency_sample_count * sound_output.bytes_per_sample)) % sound_output.
+                            secondary_buffer_size;
+
                     DWORD bytes_to_write;
 
-                    if (byte_to_lock > play_cursor)
+                    if (byte_to_lock > target_cursor)
                     {
                         bytes_to_write = sound_output.secondary_buffer_size - byte_to_lock;
-                        bytes_to_write += play_cursor;
+                        bytes_to_write += target_cursor;
                     }
                     else
                     {
-                        bytes_to_write = play_cursor - byte_to_lock;
+                        bytes_to_write = target_cursor - byte_to_lock;
                     }
 
                     Win32FillSoundBuffer(&sound_output, byte_to_lock, bytes_to_write);
