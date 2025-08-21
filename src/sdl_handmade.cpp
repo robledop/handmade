@@ -1,31 +1,3 @@
-/* ========================================================================
-   $File: $
-   $Date: $
-   $Revision: $
-   $Creator: Casey Muratori $
-   $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
-   ======================================================================== */
-
-/*
-  TODO(casey):  THIS IS NOT A FINAL PLATFORM LAYER!!!
-
-  - Make the right calls so Windows doesn't think we're "still loading" for a bit after we actually start
-  - Saved game locations
-  - Getting a handle to our own executable file
-  - Asset loading path
-  - Threading (launch a thread)
-  - Raw Input (support for multiple keyboards)
-  - ClipCursor() (for multimonitor support)
-  - QueryCancelAutoplay
-  - WM_ACTIVATEAPP (for when we are not the active application)
-  - Blit speed improvements (BitBlt)
-  - Hardware acceleration (OpenGL or Direct3D or BOTH??)
-  - GetKeyboardLayout (for French keyboards, international WASD support)
-  - ChangeDisplaySettings option if we detect slow fullscreen blit??
-
-   Just a partial list of stuff!!
-*/
-
 #include "handmade_platform.h"
 
 #include <SDL.h>

@@ -1,4 +1,4 @@
-#if !defined(SDL_HANDMADE_H)
+#pragma once
 
 struct sdl_offscreen_buffer
 {
@@ -73,6 +73,3 @@ struct sdl_state
     char EXEFileName[SDL_STATE_FILE_NAME_COUNT];
     char *OnePastLastEXEFileNameSlash;
 };
-
-#define SDL_HANDMADE_H
-#endif

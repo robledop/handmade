@@ -4,6 +4,8 @@
 #include <xinput.h>
 #include <dsound.h>
 #include <cmath>
+#include "handmade.h"
+#include "handmade.cpp"
 
 #define PI 3.14159265359f
 
@@ -163,25 +165,6 @@ static void Win32InitDSound(HWND windowHandle, int32_t samples_per_second, int32
         {
             // TODO: Diagnostic
         }
-    }
-}
-
-static void RenderWeirdGradient(const win32_offscreen_buffer& buffer, int blueOffset, int greenOffset)
-{
-    auto row = static_cast<uint8_t*>(buffer.Memory);
-
-    for (int y = 0; y < buffer.Height; ++y)
-    {
-        auto pixel = reinterpret_cast<uint32_t*>(row);
-        for (int x = 0; x < buffer.Width; ++x)
-        {
-            uint8_t blue = x + blueOffset;
-            uint8_t green = y + greenOffset;
-
-            *pixel++ = green << 8 | blue;
-        }
-
-        row += buffer.Pitch;
     }
 }
 
@@ -503,7 +486,6 @@ int CALLBACK WinMain(HINSTANCE hInstance,
     WNDCLASSA WindowClass = { };
 
     Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
-    OutputDebugStringA("WM_SIZE\n");
 
     // Win32MainWindowCallback will handle the messages sent to the window
     WindowClass.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC; // Redraw the whole window on horizontal or vertical resize
@@ -636,7 +618,12 @@ int CALLBACK WinMain(HINSTANCE hInstance,
                     }
                 }
 
-                RenderWeirdGradient(GlobalBackBuffer, xOffset, yOffset);
+                game_offscreen_buffer Buffer = {};
+                Buffer.Memory = GlobalBackBuffer.Memory;
+                Buffer.Width = GlobalBackBuffer.Width;
+                Buffer.Height = GlobalBackBuffer.Height;
+                Buffer.Pitch = GlobalBackBuffer.Pitch;
+                GameUpdateAndRender(&Buffer, xOffset, yOffset);
 
                 // NOTE: DirectSound output test
                 DWORD play_cursor;
