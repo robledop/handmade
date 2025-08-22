@@ -477,7 +477,7 @@ static void Win32FillSoundBuffer(win32_sound_output* sound_output, DWORD byte_to
             ++sound_output->running_sample_index;
         }
 
-        DWORD region2_sample_count = region1_size / sound_output->bytes_per_sample;
+        DWORD region2_sample_count = region2_size / sound_output->bytes_per_sample;
         dest_sample = static_cast<int16_t*>(region2);
         for (DWORD sample_index = 0; sample_index < region2_sample_count; ++sample_index)
         {
