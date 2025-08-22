@@ -5,7 +5,7 @@
 static void GameOutputSound(const game_sound_output_buffer *sound_buffer, int tone_hz)
 {
     static float t_sine;
-    int16_t tone_volume = 3000;
+    int16_t tone_volume = 500;
     int wave_period = sound_buffer->samples_per_second / tone_hz;
 
     int16_t *sample_out = sound_buffer->samples;

@@ -1,3 +1,7 @@
+#include "sdl_handmade.h"
+
+#include <cstring>
+
 #include "handmade_platform.h"
 
 #include <SDL.h>
@@ -11,7 +15,8 @@
 #include <sys/mman.h>
 #include <x86intrin.h>
 
-#include "sdl_handmade.cpp.h"
+#include "SDL_haptic.h"
+#include "SDL_oldnames.h"
 
 // NOTE: MAP_ANONYMOUS is not defined on Mac OS X and some other UNIX systems.
 // On the vast majority of those systems, one can use MAP_ANON instead.
@@ -22,18 +27,18 @@
 #endif
 
 // TODO(casey): This is a global for now.
-global_variable bool32 GlobalRunning;
-global_variable bool32 GlobalPause;
-global_variable sdl_offscreen_buffer GlobalBackbuffer;
-global_variable uint64 GlobalPerfCountFrequency;
-global_variable bool32 DEBUGGlobalShowCursor;
+static bool32 GlobalRunning;
+static bool32 GlobalPause;
+static sdl_offscreen_buffer GlobalBackbuffer;
+static uint64 GlobalPerfCountFrequency;
+static bool32 DEBUGGlobalShowCursor;
 
 #define MAX_CONTROLLERS 4
 #define CONTROLLER_AXIS_LEFT_DEADZONE 7849
-global_variable SDL_GameController *ControllerHandles[MAX_CONTROLLERS];
-global_variable SDL_Haptic *RumbleHandles[MAX_CONTROLLERS];
+static SDL_GameController *ControllerHandles[MAX_CONTROLLERS];
+static SDL_Haptic *RumbleHandles[MAX_CONTROLLERS];
 
-internal void
+static void
 CatStrings(size_t SourceACount, char *SourceA,
            size_t SourceBCount, char *SourceB,
            size_t DestCount, char *Dest)
@@ -57,7 +62,7 @@ CatStrings(size_t SourceACount, char *SourceA,
     *Dest++ = 0;
 }
 
-internal void
+static void
 SDLGetEXEFileName(sdl_state *State)
 {
     // NOTE(casey): Never use MAX_PATH in code that is user-facing, because it
@@ -77,7 +82,7 @@ SDLGetEXEFileName(sdl_state *State)
     }
 }
 
-internal int
+static int
 StringLength(char *String)
 {
     int Count = 0;
@@ -88,7 +93,7 @@ StringLength(char *String)
     return(Count);
 }
 
-internal void
+static void
 SDLBuildEXEPathFileName(sdl_state *State, char *FileName,
                           int DestCount, char *Dest)
 {
@@ -193,7 +198,7 @@ SDLGetLastWriteTime(char *Filename)
     return(LastWriteTime);
 }
 
-internal sdl_game_code
+static sdl_game_code
 SDLLoadGameCode(char *SourceDLLName)
 {
     sdl_game_code Result = {};
@@ -229,7 +234,7 @@ SDLLoadGameCode(char *SourceDLLName)
     return(Result);
 }
 
-internal void
+static void
 SDLUnloadGameCode(sdl_game_code *GameCode)
 {
     if(GameCode->GameCodeDLL)
@@ -243,7 +248,7 @@ SDLUnloadGameCode(sdl_game_code *GameCode)
     GameCode->GetSoundSamples = 0;
 }
 
-internal void
+static void
 SDLOpenGameControllers()
 {
     int MaxJoysticks = SDL_NumJoysticks();
@@ -271,7 +276,7 @@ SDLOpenGameControllers()
     }
 }
 
-internal void
+static void
 SDLCloseGameControllers()
 {
     for(int ControllerIndex = 0; ControllerIndex < MAX_CONTROLLERS; ++ControllerIndex)
@@ -285,7 +290,7 @@ SDLCloseGameControllers()
     }
 }
 
-internal void
+static void
 SDLInitAudio(int32 SamplesPerSecond, int32 BufferSize)
 {
     SDL_AudioSpec AudioSettings = {};
@@ -317,7 +322,7 @@ SDLGetWindowDimension(SDL_Window *Window)
     return(Result);
 }
 
-internal void
+static void
 SDLResizeTexture(sdl_offscreen_buffer *Buffer, SDL_Renderer *Renderer, int Width, int Height)
 {
     // TODO(casey): Bulletproof this.
@@ -357,7 +362,7 @@ SDLResizeTexture(sdl_offscreen_buffer *Buffer, SDL_Renderer *Renderer, int Width
     // TODO(casey): Probably clear this to black
 }
 
-internal void
+static void
 SDLDisplayBufferInWindow(sdl_offscreen_buffer *Buffer,
                          SDL_Renderer *Renderer, int WindowWidth, int WindowHeight)
 {
@@ -411,20 +416,20 @@ SDLDisplayBufferInWindow(sdl_offscreen_buffer *Buffer,
     SDL_RenderPresent(Renderer);
 }
 
-internal void
+static void
 SDLClearBuffer(sdl_sound_output *SoundOutput)
 {
     SDL_ClearQueuedAudio(1);
 }
 
-internal void
+static void
 SDLFillSoundBuffer(sdl_sound_output *SoundOutput, int BytesToWrite,
                    game_sound_output_buffer *SoundBuffer)
 {
     SDL_QueueAudio(1, SoundBuffer->Samples, BytesToWrite);
 }
 
-internal void
+static void
 SDLProcessKeyboardEvent(game_button_state *NewState, bool32 IsDown)
 {
     if(NewState->EndedDown != IsDown)
@@ -434,7 +439,7 @@ SDLProcessKeyboardEvent(game_button_state *NewState, bool32 IsDown)
     }
 }
 
-internal void
+static void
 SDLProcessGameControllerButton(game_button_state *OldState, bool Value,
                                game_button_state *NewState)
 {
@@ -442,7 +447,7 @@ SDLProcessGameControllerButton(game_button_state *OldState, bool Value,
     NewState->HalfTransitionCount = (OldState->EndedDown != NewState->EndedDown) ? 1 : 0;
 }
 
-internal real32
+static real32
 SDLProcessGameControllerAxisValue(int16 Value, int16 DeadZoneThreshold)
 {
     real32 Result = 0;
@@ -459,7 +464,7 @@ SDLProcessGameControllerAxisValue(int16 Value, int16 DeadZoneThreshold)
     return(Result);
 }
 
-internal void
+static void
 SDLGetInputFileLocation(sdl_state *State, bool32 InputStream,
                           int SlotIndex, int DestCount, char *Dest)
 {
@@ -468,7 +473,7 @@ SDLGetInputFileLocation(sdl_state *State, bool32 InputStream,
     SDLBuildEXEPathFileName(State, Temp, DestCount, Dest);
 }
 
-internal sdl_replay_buffer *
+static sdl_replay_buffer *
 SDLGetReplayBuffer(sdl_state *State, int unsigned Index)
 {
     Assert(Index > 0);
@@ -477,7 +482,7 @@ SDLGetReplayBuffer(sdl_state *State, int unsigned Index)
     return(Result);
 }
 
-internal void
+static void
 SDLBeginRecordingInput(sdl_state *State, int InputRecordingIndex)
 {
     sdl_replay_buffer *ReplayBuffer = SDLGetReplayBuffer(State, InputRecordingIndex);
@@ -497,14 +502,14 @@ SDLBeginRecordingInput(sdl_state *State, int InputRecordingIndex)
     }
 }
 
-internal void
+static void
 SDLEndRecordingInput(sdl_state *State)
 {
     close(State->RecordingHandle);
     State->InputRecordingIndex = 0;
 }
 
-internal void
+static void
 SDLBeginInputPlayBack(sdl_state *State, int InputPlayingIndex)
 {
     sdl_replay_buffer *ReplayBuffer = SDLGetReplayBuffer(State, InputPlayingIndex);
@@ -524,20 +529,20 @@ SDLBeginInputPlayBack(sdl_state *State, int InputPlayingIndex)
     }
 }
 
-internal void
+static void
 SDLEndInputPlayBack(sdl_state *State)
 {
     close(State->PlaybackHandle);
     State->InputPlayingIndex = 0;
 }
 
-internal void
+static void
 SDLRecordInput(sdl_state *State, game_input *NewInput)
 {
     ssize_t BytesWritten = write(State->RecordingHandle, NewInput, sizeof(*NewInput));
 }
 
-internal void
+static void
 SDLPlayBackInput(sdl_state *State, game_input *NewInput)
 {
     ssize_t BytesRead = read(State->PlaybackHandle, NewInput, sizeof(*NewInput));
@@ -551,7 +556,7 @@ SDLPlayBackInput(sdl_state *State, game_input *NewInput)
     }
 }
 
-internal void
+static void
 SDLToggleFullscreen(SDL_Window *Window)
 {
     uint32 Flags = SDL_GetWindowFlags(Window);
@@ -565,7 +570,7 @@ SDLToggleFullscreen(SDL_Window *Window)
     }
 }
 
-internal void
+static void
 SDLProcessPendingEvents(sdl_state *State, game_controller_input *KeyboardController)
 {
     SDL_Event Event;
@@ -726,7 +731,7 @@ SDLGetWallClock(void)
     return(Result);
 }
 
-internal real32
+static real32
 SDLGetSecondsElapsed(uint64 Start, uint64 End)
 {
     real32 Result = ((real32)(End - Start) /
@@ -734,7 +739,7 @@ SDLGetSecondsElapsed(uint64 Start, uint64 End)
     return(Result);
 }
 
-internal void
+static void
 HandleDebugCycleCounters(game_memory *Memory)
 {
 #if HANDMADE_INTERNAL
@@ -761,7 +766,7 @@ HandleDebugCycleCounters(game_memory *Memory)
 
 #if 0
 
-internal void
+static void
 SDLDebugDrawVertical(sdl_offscreen_buffer *Backbuffer,
                        int X, int Top, int Bottom, uint32 Color)
 {
@@ -801,7 +806,7 @@ SDLDrawSoundBufferMarker(sdl_offscreen_buffer *Backbuffer,
     SDLDebugDrawVertical(Backbuffer, X, Top, Bottom, Color);
 }
 
-internal void
+static void
 SDLDebugSyncDisplay(sdl_offscreen_buffer *Backbuffer,
                       int MarkerCount, sdl_debug_time_marker *Markers,
                       int CurrentMarkerIndex,
@@ -871,7 +876,7 @@ struct platform_work_queue
     platform_work_queue_entry Entries[256];
 };
 
-internal void
+static void
 SDLAddEntry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data)
 {
     // TODO(casey): Switch to InterlockedCompareExchange eventually
@@ -887,7 +892,7 @@ SDLAddEntry(platform_work_queue *Queue, platform_work_queue_callback *Callback, 
     SDL_SemPost(Queue->SemaphoreHandle);
 }
 
-internal bool32
+static bool32
 SDLDoNextWorkQueueEntry(platform_work_queue *Queue)
 {
     bool32 WeShouldSleep = false;
@@ -914,7 +919,7 @@ SDLDoNextWorkQueueEntry(platform_work_queue *Queue)
     return(WeShouldSleep);
 }
 
-internal void
+static void
 SDLCompleteAllWork(platform_work_queue *Queue)
 {
     while(Queue->CompletionGoal != Queue->CompletionCount)
@@ -942,12 +947,12 @@ ThreadProc(void *Parameter)
 //    return(0);
 }
 
-internal PLATFORM_WORK_QUEUE_CALLBACK(DoWorkerWork)
+static PLATFORM_WORK_QUEUE_CALLBACK(DoWorkerWork)
 {
     printf("Thread %lu: %s\n", SDL_ThreadID(), (char *)Data);
 }
 
-internal void
+static void
 SDLMakeQueue(platform_work_queue *Queue, uint32 ThreadCount)
 {
     Queue->CompletionGoal = 0;
@@ -979,7 +984,7 @@ struct sdl_platform_file_group
     glob_t GlobData;
 };
 
-internal PLATFORM_GET_ALL_FILE_OF_TYPE_BEGIN(SDLGetAllFilesOfTypeBegin)
+static PLATFORM_GET_ALL_FILE_OF_TYPE_BEGIN(SDLGetAllFilesOfTypeBegin)
 {
     platform_file_group Result = {};
 
@@ -1010,7 +1015,7 @@ internal PLATFORM_GET_ALL_FILE_OF_TYPE_BEGIN(SDLGetAllFilesOfTypeBegin)
     return(Result);
 }
 
-internal PLATFORM_GET_ALL_FILE_OF_TYPE_END(SDLGetAllFilesOfTypeEnd)
+static PLATFORM_GET_ALL_FILE_OF_TYPE_END(SDLGetAllFilesOfTypeEnd)
 {
     sdl_platform_file_group *SDLFileGroup = (sdl_platform_file_group *)FileGroup->Platform;
     if(SDLFileGroup)
@@ -1021,7 +1026,7 @@ internal PLATFORM_GET_ALL_FILE_OF_TYPE_END(SDLGetAllFilesOfTypeEnd)
     }
 }
 
-internal PLATFORM_OPEN_FILE(SDLOpenNextFile)
+static PLATFORM_OPEN_FILE(SDLOpenNextFile)
 {
     sdl_platform_file_group *SDLFileGroup = (sdl_platform_file_group *)FileGroup->Platform;
     platform_file_handle Result = {};
@@ -1044,7 +1049,7 @@ internal PLATFORM_OPEN_FILE(SDLOpenNextFile)
     return(Result);
 }
 
-internal PLATFORM_FILE_ERROR(SDLFileError)
+static PLATFORM_FILE_ERROR(SDLFileError)
 {
 #if HANDMADE_INTERNAL
     printf("SDL FILE ERROR: %s\n", Message);
@@ -1053,7 +1058,7 @@ internal PLATFORM_FILE_ERROR(SDLFileError)
     Handle->NoErrors = false;
 }
 
-internal PLATFORM_READ_DATA_FROM_FILE(SDLReadDataFromFile)
+static PLATFORM_READ_DATA_FROM_FILE(SDLReadDataFromFile)
 {
     if(PlatformNoFileErrors(Source))
     {
@@ -1082,7 +1087,7 @@ internal PLATFORM_READ_DATA_FROM_FILE(SDLReadDataFromFile)
 
 /*
 
-internal PLATFORM_FILE_ERROR(SDLCloseFile)
+static PLATFORM_FILE_ERROR(SDLCloseFile)
 {
     close(FileHandle);
 }

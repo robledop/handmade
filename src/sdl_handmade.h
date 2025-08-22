@@ -1,5 +1,7 @@
 #pragma once
 
+#include <SDL.h>
+
 struct sdl_offscreen_buffer
 {
     // NOTE(casey): Pixels are alwasy 32-bits wide, Memory Order BB GG RR XX
@@ -20,10 +22,10 @@ struct sdl_window_dimension
 struct sdl_sound_output
 {
     int SamplesPerSecond;
-    uint32 RunningSampleIndex;
+    uint32_t RunningSampleIndex;
     int BytesPerSample;
-    uint32 SecondaryBufferSize;
-    uint32 SafetyBytes;
+    uint32_t SecondaryBufferSize;
+    uint32_t SafetyBytes;
 
     // TODO(casey): Should running sample index be in bytes as well
     // TODO(casey): Math gets simpler if we add a "bytes per second" field?
@@ -31,9 +33,9 @@ struct sdl_sound_output
 
 struct sdl_debug_time_marker
 {
-    uint32 QueuedAudioBytes;
-    uint32 OutputByteCount;
-    uint32 ExpectedBytesUntilFlip;
+    uint32_t QueuedAudioBytes;
+    uint32_t OutputByteCount;
+    uint32_t ExpectedBytesUntilFlip;
 };
 
 struct sdl_game_code
@@ -46,7 +48,7 @@ struct sdl_game_code
     game_update_and_render *UpdateAndRender;
     game_get_sound_samples *GetSoundSamples;
 
-    bool32 IsValid;
+    bool IsValid;
 };
 
 #define SDL_STATE_FILE_NAME_COUNT 4096
@@ -60,7 +62,7 @@ struct sdl_replay_buffer
 
 struct sdl_state
 {
-    uint64 TotalSize;
+    uint64_t TotalSize;
     void *GameMemoryBlock;
     sdl_replay_buffer ReplayBuffers[4];
 
